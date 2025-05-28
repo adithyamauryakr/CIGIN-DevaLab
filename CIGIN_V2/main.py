@@ -3,6 +3,7 @@ import pandas as pd
 import warnings
 import os
 import argparse
+from sklearn.model_selection import train_test_split
 
 # rdkit imports
 from rdkit import RDLogger
@@ -84,9 +85,11 @@ class Dataclass(Dataset):
 
 
 def main():
-    train_df = pd.read_csv('data/train.csv', sep=";")
-    valid_df = pd.read_csv('data/valid.csv', sep=";")
+    # train_df = pd.read_csv('data/train.csv', sep=";")
+    # valid_df = pd.read_csv('data/valid.csv', sep=";")
 
+    pd.read_csv('data/whole_data.csv')
+    train_df, valid_df = train_test_split(pd.read_csv('data/train.csv', sep=";"), test_size=0.1)
     train_dataset = Dataclass(train_df)
     valid_dataset = Dataclass(valid_df)
 
