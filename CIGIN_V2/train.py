@@ -14,7 +14,7 @@ def get_metrics(model, data_loader):
     valid_labels = []
     valid_loss = []
     valid_mae_loss = []
-    for solute_graphs, solvent_graphs, solute_lens, solvent_lens, labels in tqdm(data_loader):
+    for solute_graphs, solvent_graphs, solute_lens, solvent_lens, labels in data_loader:
         outputs, i_map = model(
             [solute_graphs.to(device), solvent_graphs.to(device), torch.tensor(solute_lens).to(device),
              torch.tensor(solvent_lens).to(device)])
