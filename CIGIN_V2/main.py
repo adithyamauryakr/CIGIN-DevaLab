@@ -68,21 +68,21 @@ class Dataclass(Dataset):
 
     def __getitem__(self, idx):
 
-        print('solute', self.dataset.loc[idx]['SoluteSMILES'])
-        solute = self.dataset.loc[idx]['SoluteSMILES']
+        # print('solute', self.dataset.iloc[idx]['SoluteSMILES'])
+        solute = self.dataset.iloc[idx]['SoluteSMILES']
         mol = Chem.MolFromSmiles(solute)
         mol = Chem.AddHs(mol)
         solute = Chem.MolToSmiles(mol)
         solute_graph = get_graph_from_smile(solute)
-        print('solvent',self.dataset.loc[idx]['SolventSMILES'])
-        solvent = self.dataset.loc[idx]['SolventSMILES']
+        # print('solvent',self.dataset.iloc[idx]['SolventSMILES'])
+        solvent = self.dataset.iloc[idx]['SolventSMILES']
 
         mol = Chem.MolFromSmiles(solvent)
         mol = Chem.AddHs(mol)
         solvent = Chem.MolToSmiles(mol)
 
         solvent_graph = get_graph_from_smile(solvent)
-        delta_g = self.dataset.loc[idx]['delGsolv']
+        delta_g = self.dataset.iloc[idx]['delGsolv']
         return [solute_graph, solvent_graph, [delta_g]]
 
 
