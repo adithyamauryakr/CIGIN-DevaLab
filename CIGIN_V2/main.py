@@ -80,7 +80,7 @@ class Dataclass(Dataset):
         solvent = Chem.MolToSmiles(mol)
 
         solvent_graph = get_graph_from_smile(solvent)
-        delta_g = self.dataset.loc[idx]['DeltaGsolv']
+        delta_g = self.dataset.loc[idx]['delGsolv']
         return [solute_graph, solvent_graph, [delta_g]]
 
 
