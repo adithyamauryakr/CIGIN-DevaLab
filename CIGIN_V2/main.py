@@ -73,8 +73,9 @@ class Dataclass(Dataset):
         mol = Chem.AddHs(mol)
         solute = Chem.MolToSmiles(mol)
         solute_graph = get_graph_from_smile(solute)
-
+        print(self.dataset.loc[idx]['SolventSMILES'])
         solvent = self.dataset.loc[idx]['SolventSMILES']
+
         mol = Chem.MolFromSmiles(solvent)
         mol = Chem.AddHs(mol)
         solvent = Chem.MolToSmiles(mol)
@@ -92,7 +93,7 @@ def main():
     df.columns = df.columns.str.strip()
     print(df.columns)
     train_df, valid_df = train_test_split(df, test_size=0.1)
-    
+
     train_dataset = Dataclass(train_df)
     valid_dataset = Dataclass(valid_df)
 
