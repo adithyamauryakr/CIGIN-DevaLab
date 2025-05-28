@@ -88,8 +88,11 @@ def main():
     # train_df = pd.read_csv('data/train.csv', sep=";")
     # valid_df = pd.read_csv('data/valid.csv', sep=";")
 
-    pd.read_csv('data/whole_data.csv')
-    train_df, valid_df = train_test_split(pd.read_csv('data/train.csv', sep=";"), test_size=0.1)
+    df = pd.read_csv('data/whole_data.csv')
+    df.columns = df.columns.str.strip()
+    print(df.columns)
+    train_df, valid_df = train_test_split(df, test_size=0.1)
+    
     train_dataset = Dataclass(train_df)
     valid_dataset = Dataclass(valid_df)
 
