@@ -3,7 +3,8 @@ import pandas as pd
 import warnings
 import os
 import argparse
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
+import numpy as np
 
 # rdkit imports
 from rdkit import RDLogger
@@ -20,7 +21,7 @@ import dgl
 
 # local imports
 from model import CIGINModel
-from train import train
+from train import train, evaluate_model
 from molecular_graph import get_graph_from_smile
 from utils import *
 
@@ -85,6 +86,46 @@ class Dataclass(Dataset):
         delta_g = self.dataset.iloc[idx]['delGsolv']
         return [solute_graph, solvent_graph, [delta_g]]
 
+
+def run_kfold_cv(max_epochs=100, num_folds=10, num_repeats=5, batch_size=32):
+    df = pd.read_csv('data/whole_data.csv')
+    df.columns = df.columns.str.strip()
+    print(df.columns)
+    train_df, valid_df = train_test_split(df, test_size=0.1)
+
+    all_rmse = []
+
+    for repeat in range(num_repeats):
+        print(f"\n=== Repetition {repeat + 1}/{num_repeats} ===")
+        kf = KFold(n_splits=num_folds, shuffle=True, random_state=repeat)
+
+        for fold, (train_idx, val_idx) in enumerate(kf.split(dataset)):
+            print(f"\n[Fold {fold + 1}/{num_folds}]")
+
+            # Dataloaders
+
+            train_dataset = Dataclass(train_df)
+            valid_dataset = Dataclass(valid_df)
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+            valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
+
+            # New model and optimizer each fold
+            model = CIGINModel(interaction=interaction).to(device)
+            optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10, factor=0.7, verbose=True)
+
+            project_name = f"repeat{repeat+1}_fold{fold+1}"
+            train(max_epochs, model, optimizer, scheduler, train_loader, valid_loader, project_name)
+
+            # Load best model and evaluate
+            model.load_state_dict(torch.load(f"./runs/run-{project_name}/models/best_model.tar"))
+            test_rmse = evaluate_model(model, valid_loader)
+            all_rmse.append(test_rmse)
+            print(f"✅ Fold RMSE: {test_rmse:.4f}")
+
+    mean_rmse = np.mean(all_rmse)
+    std_rmse = np.std(all_rmse)
+    print(f"\n📊 Final Test RMSE over {num_repeats}x{num_folds}: {mean_rmse:.4f} ± {std_rmse:.4f}")
 
 def main():
     # train_df = pd.read_csv('data/train.csv', sep=";")

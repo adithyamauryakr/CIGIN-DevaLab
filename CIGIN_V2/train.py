@@ -8,6 +8,18 @@ mae_loss_fn = torch.nn.L1Loss()
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
+def evaluate_model(model, dataloader):
+    model.eval()
+    preds, targets = [], []
+    with torch.no_grad():
+        for samples in dataloader:
+            outputs, _ = model([samples[0].to(device), samples[1].to(device),
+                                samples[2].to(device), samples[3].to(device)])
+            preds.extend(outputs.cpu().numpy())
+            targets.extend(samples[4].numpy())
+    preds, targets = np.array(preds), np.array(targets)
+    rmse = np.sqrt(np.mean((preds - targets) ** 2))
+    return rmse
 
 def get_metrics(model, data_loader):
     valid_outputs = []
