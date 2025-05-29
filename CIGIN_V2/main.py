@@ -88,10 +88,10 @@ class Dataclass(Dataset):
 
 
 def run_kfold_cv(max_epochs=100, num_folds=10, num_repeats=5, batch_size=32):
-    df = pd.read_csv('data/whole_data.csv')
-    df.columns = df.columns.str.strip()
-    print(df.columns)
-    train_df, valid_df = train_test_split(df, test_size=0.1)
+    dataset = pd.read_csv('data/whole_data.csv')
+    dataset.columns = dataset.columns.str.strip()
+    
+    train_df, valid_df = train_test_split(dataset, test_size=0.1)
 
     all_rmse = []
 
@@ -106,6 +106,7 @@ def run_kfold_cv(max_epochs=100, num_folds=10, num_repeats=5, batch_size=32):
 
             train_dataset = Dataclass(train_df)
             valid_dataset = Dataclass(valid_df)
+
             train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
             valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
 
@@ -125,7 +126,7 @@ def run_kfold_cv(max_epochs=100, num_folds=10, num_repeats=5, batch_size=32):
 
     mean_rmse = np.mean(all_rmse)
     std_rmse = np.std(all_rmse)
-    print(f"\n📊 Final Test RMSE over {num_repeats}x{num_folds}: {mean_rmse:.4f} ± {std_rmse:.4f}")
+    print(f" Final Test RMSE over {num_repeats}x{num_folds}: {mean_rmse:.4f} ± {std_rmse:.4f}")
 
 def main():
     # train_df = pd.read_csv('data/train.csv', sep=";")
