@@ -70,3 +70,5 @@ def train(max_epochs, model, optimizer, scheduler, train_loader, valid_loader, p
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             torch.save(model.state_dict(), "./runs/run-" + str(project_name) + "/models/best_model.tar")
+
+

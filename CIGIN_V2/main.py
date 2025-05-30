@@ -21,7 +21,7 @@ import dgl
 
 # local imports
 from model import CIGINModel
-from train import train, evaluate_model
+from train import train, evaluate_model, get_metrics
 from molecular_graph import get_graph_from_smile
 from utils import *
 
@@ -135,13 +135,16 @@ def main():
     df = pd.read_csv('data/whole_data.csv')
     df.columns = df.columns.str.strip()
     print(df.columns)
-    train_df, valid_df = train_test_split(df, test_size=0.1)
+    train_df, test_df = train_test_split(df, test_size=0.1, random_state=42)
+    train_df, valid_df = train_test_split(train_df, test_size=0.111, random_state=42)
 
     train_dataset = Dataclass(train_df)
     valid_dataset = Dataclass(valid_df)
+    test_dataset = Dataclass(test_df)
 
     train_loader = DataLoader(train_dataset, collate_fn=collate, batch_size=batch_size, shuffle=True)
     valid_loader = DataLoader(valid_dataset, collate_fn=collate, batch_size=128)
+    test_loader = DataLoader(test_dataset, collate_fn=collate, batch_size=128)
 
     model = CIGINModel(interaction=interaction)
     model.to(device)
@@ -149,6 +152,11 @@ def main():
     scheduler = ReduceLROnPlateau(optimizer, patience=5, mode='min', verbose=True)
 
     train(max_epochs, model, optimizer, scheduler, train_loader, valid_loader, project_name)
+
+    # check on testing data:
+    model.eval()
+    loss, mae_loss = get_metrics(model, test_loader)
+    print(f"Model performance on the testing data: Loss: {loss},  MAE_Loss: {mae_loss}")
 
 
 if __name__ == '__main__':
