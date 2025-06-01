@@ -108,7 +108,7 @@ class CIGINModel(nn.Module):
                                           self.node_hidden_dim, self.edge_input_dim,
                                           self.num_step_message_passing,
                                           )
-
+        # These three are the FFNN for prediction phase
         self.fc1 = nn.Linear(8 * self.node_hidden_dim, 256)
         self.fc2 = nn.Linear(256, 128)
         self.fc3 = nn.Linear(128, 1)
