@@ -1,7 +1,7 @@
 import numpy as np
 
 from dgl import DGLGraph
-from dgl.nn.pytorch import Set2Set, NNConv, GATConv
+from dgl.nn.pytorch import Set2Set, NNConv, GATConv, GatedGraphConv
 
 import torch
 import torch.nn as nn
@@ -39,16 +39,11 @@ class GatherModel(nn.Module):
         self.lin0 = nn.Linear(node_input_dim, node_hidden_dim)
         self.set2set = Set2Set(node_hidden_dim, 2, 1)
         self.message_layer = nn.Linear(2 * node_hidden_dim, node_hidden_dim)
-        edge_network = nn.Sequential(
-            nn.Linear(edge_input_dim, edge_hidden_dim), nn.ReLU(),
-            nn.Linear(edge_hidden_dim, node_hidden_dim * node_hidden_dim))
-        self.conv = NNConv(in_feats=node_hidden_dim,
-                           out_feats=node_hidden_dim,
-                           edge_func=edge_network,
-                           aggregator_type='sum',
-                           residual=True
-                           )
-
+    
+        self.conv = GatedGraphConv(in_feats=node_hidden_dim,
+                                   out_feats=node_hidden_dim,
+                                   n_steps=num_step_message_passing,
+                                   n_etypes=1, bias=True)
     def forward(self, g, n_feat, e_feat):
         """Returns the node embeddings after message passing phase.
         Parameters
@@ -65,8 +60,9 @@ class GatherModel(nn.Module):
         -------
         res : node features
         """
-
-        init = n_feat.clone()
+        h = F.relu(self.lin0(n_feat))
+        etypes = g.edata['type'] if 'type' in g.edata else torch.zeros(g.number_of_edges(), dtype=torch.long, device=h.device)
+        h = self.conv(g, h, etypes)
         out = F.relu(self.lin0(n_feat))
         for i in range(self.num_step_message_passing):
             if e_feat is not None:
@@ -74,7 +70,7 @@ class GatherModel(nn.Module):
             else:
                 m = torch.relu(self.conv.bias +  self.conv.res_fc(out))
             out = self.message_layer(torch.cat([m, out], dim=1))
-        return out + init
+        return h
 
 
 class CIGINModel(nn.Module):
