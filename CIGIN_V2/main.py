@@ -149,7 +149,7 @@ def main():
     valid_loader = DataLoader(valid_dataset, collate_fn=collate, batch_size=128)
     test_loader = DataLoader(test_dataset, collate_fn=collate, batch_size=128)
 
-    model = CIGINEGNN(interaction=interaction)
+    model = CIGINGGN(interaction=interaction)
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     scheduler = ReduceLROnPlateau(optimizer, patience=5, mode='min', verbose=True)
