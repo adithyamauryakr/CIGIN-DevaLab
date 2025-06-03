@@ -24,6 +24,7 @@ from model import CIGINModel
 from train import train, evaluate_model, get_metrics
 from molecular_graph import get_graph_from_smile
 from utils import *
+from models.van_GAT import CIGINGAT
 
 lg = RDLogger.logger()
 lg.setLevel(RDLogger.CRITICAL)
@@ -146,7 +147,7 @@ def main():
     valid_loader = DataLoader(valid_dataset, collate_fn=collate, batch_size=128)
     test_loader = DataLoader(test_dataset, collate_fn=collate, batch_size=128)
 
-    model = CIGINModel(interaction=interaction)
+    model = CIGINGAT(interaction=interaction)
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     scheduler = ReduceLROnPlateau(optimizer, patience=5, mode='min', verbose=True)

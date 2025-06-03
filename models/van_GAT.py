@@ -75,7 +75,7 @@ class GatherModel(nn.Module):
         return out + init
 
 
-class CIGINModel(nn.Module):
+class CIGINGAT(nn.Module):
     """
     This the main class for CIGIN model
     """
