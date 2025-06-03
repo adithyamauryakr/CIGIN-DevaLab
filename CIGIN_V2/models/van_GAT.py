@@ -1,7 +1,7 @@
 import numpy as np
 
 from dgl import DGLGraph
-from dgl.nn.pytorch.conv import Set2Set, NNConv, GATv2Conv
+from dgl.nn.pytorch import Set2Set, NNConv, GATv2Conv
 
 import torch
 import torch.nn as nn
