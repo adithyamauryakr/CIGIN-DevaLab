@@ -90,7 +90,7 @@ class CIGINGAT(nn.Module):
                  num_step_set2_set=2,
                  num_layer_set2set=1,
                  ):
-        super(CIGINModel, self).__init__()
+        super(CIGINGAT, self).__init__()
 
         self.node_input_dim = node_input_dim
         self.node_hidden_dim = node_hidden_dim
