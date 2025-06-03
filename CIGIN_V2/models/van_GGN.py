@@ -62,14 +62,8 @@ class GatherModel(nn.Module):
         """
         h = F.relu(self.lin0(n_feat))
         etypes = g.edata['type'] if 'type' in g.edata else torch.zeros(g.number_of_edges(), dtype=torch.long, device=h.device)
-        h = self.conv(g, h, etypes)
-        out = F.relu(self.lin0(n_feat))
-        for i in range(self.num_step_message_passing):
-            if e_feat is not None:
-                m = torch.relu(self.conv(g, out, e_feat))
-            else:
-                m = torch.relu(self.conv.bias +  self.conv.res_fc(out))
-            out = self.message_layer(torch.cat([m, out], dim=1))
+        h = self.conv(g, h, n_etypes=etypes)
+
         return h
 
 
