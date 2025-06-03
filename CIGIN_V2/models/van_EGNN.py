@@ -1,7 +1,7 @@
 import numpy as np
 
 from dgl import DGLGraph
-from dgl.nn.pytorch import Set2Set, NNConv, GATConv
+from dgl.nn.pytorch import Set2Set, NNConv, EGNNConv
 
 import torch
 import torch.nn as nn
@@ -39,16 +39,21 @@ class GatherModel(nn.Module):
         self.lin0 = nn.Linear(node_input_dim, node_hidden_dim)
         self.set2set = Set2Set(node_hidden_dim, 2, 1)
         self.message_layer = nn.Linear(2 * node_hidden_dim, node_hidden_dim)
-        edge_network = nn.Sequential(
-            nn.Linear(edge_input_dim, edge_hidden_dim), nn.ReLU(),
-            nn.Linear(edge_hidden_dim, node_hidden_dim * node_hidden_dim))
-        self.conv = NNConv(in_feats=node_hidden_dim,
-                           out_feats=node_hidden_dim,
-                           edge_func=edge_network,
-                           aggregator_type='sum',
-                           residual=True
-                           )
+        # edge_network = nn.Sequential(
+        #     nn.Linear(edge_input_dim, edge_hidden_dim), nn.ReLU(),
+        #     nn.Linear(edge_hidden_dim, node_hidden_dim * node_hidden_dim))
+        # self.conv = NNConv(in_feats=node_hidden_dim,
+        #                    out_feats=node_hidden_dim,
+        #                    edge_func=edge_network,
+        #                    aggregator_type='sum',
+        #                    residual=True
+        #                    )
 
+        self.conv = EGNNConv(in_size=node_hidden_dim,
+                             hidden_size=node_hidden_dim,
+                             out_size=node_hidden_dim,
+                             edge_feat_size=edge_hidden_dim)
+        
     def forward(self, g, n_feat, e_feat):
         """Returns the node embeddings after message passing phase.
         Parameters
@@ -77,7 +82,7 @@ class GatherModel(nn.Module):
         return out + init
 
 
-class CIGINModel(nn.Module):
+class CIGINEGNN(nn.Module):
     """
     This the main class for CIGIN model
     """
@@ -92,7 +97,7 @@ class CIGINModel(nn.Module):
                  num_step_set2_set=2,
                  num_layer_set2set=1,
                  ):
-        super(CIGINModel, self).__init__()
+        super(CIGINEGNN, self).__init__()
 
         self.node_input_dim = node_input_dim
         self.node_hidden_dim = node_hidden_dim
