@@ -1,7 +1,7 @@
 import numpy as np
 
 from dgl import DGLGraph
-from dgl.nn.pytorch import Set2Set, NNConv, GATConv
+from dgl.nn.pytorch import Set2Set, NNConv, GATConv, GINEConv
 
 import torch
 import torch.nn as nn
@@ -42,12 +42,11 @@ class GatherModel(nn.Module):
         edge_network = nn.Sequential(
             nn.Linear(edge_input_dim, edge_hidden_dim), nn.ReLU(),
             nn.Linear(edge_hidden_dim, node_hidden_dim * node_hidden_dim))
-        self.conv = NNConv(in_feats=node_hidden_dim,
-                           out_feats=node_hidden_dim,
-                           edge_func=edge_network,
-                           aggregator_type='sum',
-                           residual=True
-                           )
+        
+        self.conv = GINEConv(
+            apply_func=self.lin0,
+            learn_eps=True
+        )
 
     def forward(self, g, n_feat, e_feat):
         """Returns the node embeddings after message passing phase.
@@ -65,6 +64,7 @@ class GatherModel(nn.Module):
         -------
         res : node features
         """
+        # res = self.conv(g, n_feat, e_feat)
 
         init = n_feat.clone()
         out = F.relu(self.lin0(n_feat))
