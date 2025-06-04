@@ -10,70 +10,23 @@ import torch.nn.functional as F
 
 
 class GatherModel(nn.Module):
-    """
-    MPNN from
-    `Neural Message Passing for Quantum Chemistry <https://arxiv.org/abs/1704.01212>`
-    Parameters
-    ----------
-    node_input_dim : int
-        Dimension of input node feature, default to be 42.
-    edge_input_dim : int
-        Dimension of input edge feature, default to be 10.
-    node_hidden_dim : int
-        Dimension of node feature in hidden layers, default to be 42.
-    edge_hidden_dim : int
-        Dimension of edge feature in hidden layers, default to be 128.
-    num_step_message_passing : int
-        Number of message passing steps, default to be 6.
-    """
-
-    def __init__(self,
-                 node_input_dim=42,
-                 edge_input_dim=10,
-                 node_hidden_dim=42,
-                 edge_hidden_dim=42,
-                 num_step_message_passing=6,
-                 ):
-        super(GatherModel, self).__init__()
+    def __init__(self, node_input_dim=42, node_hidden_dim=42, num_heads=2, num_step_message_passing=6):
+        super().__init__()
         self.num_step_message_passing = num_step_message_passing
         self.lin0 = nn.Linear(node_input_dim, node_hidden_dim)
-        self.set2set = Set2Set(node_hidden_dim, 2, 1)
+        self.convs = nn.ModuleList([
+            GATv2Conv(in_feats=node_hidden_dim, out_feats=node_hidden_dim // num_heads, num_heads=num_heads)
+            for _ in range(num_step_message_passing)
+        ])
         self.message_layer = nn.Linear(2 * node_hidden_dim, node_hidden_dim)
-        edge_network = nn.Sequential(
-            nn.Linear(edge_input_dim, edge_hidden_dim), nn.ReLU(),
-            nn.Linear(edge_hidden_dim, node_hidden_dim * node_hidden_dim))
-        
-        self.conv = GATv2Conv(in_feats=node_hidden_dim,
-                              out_feats=node_hidden_dim,
-                              num_heads=3)
 
-    def forward(self, g, n_feat, e_feat):
-        """Returns the node embeddings after message passing phase.
-        Parameters
-        ----------
-        g : DGLGraph
-            Input DGLGraph for molecule(s)
-        n_feat : tensor of dtype float32 and shape (B1, D1)
-            Node features. B1 for number of nodes and D1 for
-            the node feature size.
-        e_feat : tensor of dtype float32 and shape (B2, D2)
-            Edge features. B2 for number of edges and D2 for
-            the edge feature size.
-        Returns
-        -------
-        res : node features
-        """
-
+    def forward(self, g, n_feat, e_feat=None):  # e_feat is unused in GATv2
         init = n_feat.clone()
         out = F.relu(self.lin0(n_feat))
-        for i in range(self.num_step_message_passing):
-            if e_feat is not None:
-                m = torch.relu(self.conv(g, out, e_feat))
-            else:
-                m = torch.relu(self.conv.bias +  self.conv.res_fc(out))
+        for conv in self.convs:
+            m = conv(g, out).flatten(1)  # shape: (num_nodes, node_hidden_dim)
             out = self.message_layer(torch.cat([m, out], dim=1))
         return out + init
-
 
 class CIGINGAT(nn.Module):
     """
