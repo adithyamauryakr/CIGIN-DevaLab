@@ -1,5 +1,5 @@
 import numpy as np
-
+import dgl
 from dgl import DGLGraph
 from dgl.nn.pytorch import Set2Set, NNConv, GATv2Conv
 
@@ -10,6 +10,7 @@ import torch.nn.functional as F
 
 
 class GatherModel(nn.Module):
+
     def __init__(self, node_input_dim=42, node_hidden_dim=42, num_heads=2, num_step_message_passing=6):
         super().__init__()
         self.num_step_message_passing = num_step_message_passing
@@ -21,6 +22,7 @@ class GatherModel(nn.Module):
         self.message_layer = nn.Linear(2 * node_hidden_dim, node_hidden_dim)
 
     def forward(self, g, n_feat, e_feat=None):  # e_feat is unused in GATv2
+        g = dgl.add_self_loop(g)
         init = n_feat.clone()
         out = F.relu(self.lin0(n_feat))
         for conv in self.convs:
