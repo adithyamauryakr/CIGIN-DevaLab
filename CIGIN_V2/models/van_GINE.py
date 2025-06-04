@@ -77,7 +77,7 @@ class GatherModel(nn.Module):
         return out + init
 
 
-class CIGINModel(nn.Module):
+class CIGINGINE(nn.Module):
     """
     This the main class for CIGIN model
     """
@@ -92,7 +92,7 @@ class CIGINModel(nn.Module):
                  num_step_set2_set=2,
                  num_layer_set2set=1,
                  ):
-        super(CIGINModel, self).__init__()
+        super(CIGINGINE, self).__init__()
 
         self.node_input_dim = node_input_dim
         self.node_hidden_dim = node_hidden_dim

@@ -27,6 +27,7 @@ from utils import *
 from models.van_GAT import CIGINGAT
 from models.van_EGNN import CIGINEGNN
 from models.van_GGN import CIGINGGN
+from models.van_GINE import CIGINGINE
 
 lg = RDLogger.logger()
 lg.setLevel(RDLogger.CRITICAL)
@@ -149,7 +150,7 @@ def main():
     valid_loader = DataLoader(valid_dataset, collate_fn=collate, batch_size=128)
     test_loader = DataLoader(test_dataset, collate_fn=collate, batch_size=128)
 
-    model = CIGINGGN(interaction=interaction)
+    model = CIGINGINE(interaction=interaction)
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     scheduler = ReduceLROnPlateau(optimizer, patience=5, mode='min', verbose=True)
