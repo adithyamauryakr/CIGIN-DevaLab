@@ -50,7 +50,7 @@ class CIGINGGN(nn.Module):
                  num_layer_set2set=1,
                  ):
         super(CIGINGGN, self).__init__()
-        init = n_feat.clone()
+
         self.node_input_dim = node_input_dim
         self.node_hidden_dim = node_hidden_dim
         self.edge_input_dim = edge_input_dim
