@@ -1,5 +1,5 @@
 import numpy as np
-
+import dgl
 from dgl import DGLGraph
 from dgl.nn.pytorch import Set2Set, NNConv, GATConv, GatedGraphConv
 
@@ -8,63 +8,30 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-
 class GatherModel(nn.Module):
-    """
-    MPNN from
-    `Neural Message Passing for Quantum Chemistry <https://arxiv.org/abs/1704.01212>`
-    Parameters
-    ----------
-    node_input_dim : int
-        Dimension of input node feature, default to be 42.
-    edge_input_dim : int
-        Dimension of input edge feature, default to be 10.
-    node_hidden_dim : int
-        Dimension of node feature in hidden layers, default to be 42.
-    edge_hidden_dim : int
-        Dimension of edge feature in hidden layers, default to be 128.
-    num_step_message_passing : int
-        Number of message passing steps, default to be 6.
-    """
+    def __init__(self, node_input_dim=42, node_hidden_dim=42, num_heads=2, num_step_message_passing=6):
 
-    def __init__(self,
-                 node_input_dim=42,
-                 edge_input_dim=10,
-                 node_hidden_dim=42,
-                 edge_hidden_dim=42,
-                 num_step_message_passing=6,
-                 ):
-        super(GatherModel, self).__init__()
+        super().__init__()
         self.num_step_message_passing = num_step_message_passing
         self.lin0 = nn.Linear(node_input_dim, node_hidden_dim)
-        self.set2set = Set2Set(node_hidden_dim, 2, 1)
-        self.message_layer = nn.Linear(2 * node_hidden_dim, node_hidden_dim)
-    
         self.conv = GatedGraphConv(in_feats=node_hidden_dim,
                                    out_feats=node_hidden_dim,
                                    n_steps=num_step_message_passing,
-                                   n_etypes=1, bias=True)
-    def forward(self, g, n_feat, e_feat):
-        """Returns the node embeddings after message passing phase.
-        Parameters
-        ----------
-        g : DGLGraph
-            Input DGLGraph for molecule(s)
-        n_feat : tensor of dtype float32 and shape (B1, D1)
-            Node features. B1 for number of nodes and D1 for
-            the node feature size.
-        e_feat : tensor of dtype float32 and shape (B2, D2)
-            Edge features. B2 for number of edges and D2 for
-            the edge feature size.
-        Returns
-        -------
-        res : node features
-        """
-        h = F.relu(self.lin0(n_feat))
-        etypes = g.edata['type'] if 'type' in g.edata else torch.zeros(g.number_of_edges(), dtype=torch.long, device=h.device)
-        h = self.conv(g, h, n_etypes=etypes)
+                                   n_etypes=1)
 
-        return h
+        self.message_layer = nn.Linear(2 * node_hidden_dim, node_hidden_dim)
+
+    def forward(self, g, n_feat, e_feat=None):  # e_feat is unused in GATv2
+        g = dgl.add_self_loop(g)
+        init = n_feat.clone()
+        h = F.relu(self.lin0(n_feat))
+        edge_types = torch.zeros(g.num_edges(), dtype=torch.long, device=h.device)
+        # If no edge type info, treat all edges the same
+        out = self.conv(g, h, torch.zeros(g.num_edges(), dtype=torch.long, device=h.device))
+
+        # Optional extra layer to mix updated & original features
+        out = self.message_layer(torch.cat([out, h], dim=1))
+        return out + init
 
 
 class CIGINGGN(nn.Module):
