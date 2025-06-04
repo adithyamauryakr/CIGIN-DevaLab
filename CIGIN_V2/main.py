@@ -115,7 +115,7 @@ def run_kfold_cv(max_epochs=100, num_folds=10, num_repeats=5, batch_size=32):
             valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
 
             # New model and optimizer each fold
-            model = CIGINGGN(interaction=interaction).to(device)
+            model = CIGINGAT(interaction=interaction).to(device)
             optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
             scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10, factor=0.7, verbose=True)
 
