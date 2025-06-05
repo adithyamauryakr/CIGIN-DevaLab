@@ -1,80 +1,44 @@
 import numpy as np
-
+import dgl
 from dgl import DGLGraph
-from dgl.nn.pytorch import Set2Set, NNConv, GATConv
+from dgl.nn.pytorch import Set2Set, NNConv, GraphConv
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
-
 class GatherModel(nn.Module):
-    """
-    MPNN from
-    `Neural Message Passing for Quantum Chemistry <https://arxiv.org/abs/1704.01212>`
-    Parameters
-    ----------
-    node_input_dim : int
-        Dimension of input node feature, default to be 42.
-    edge_input_dim : int
-        Dimension of input edge feature, default to be 10.
-    node_hidden_dim : int
-        Dimension of node feature in hidden layers, default to be 42.
-    edge_hidden_dim : int
-        Dimension of edge feature in hidden layers, default to be 128.
-    num_step_message_passing : int
-        Number of message passing steps, default to be 6.
-    """
+    def __init__(self, node_input_dim=42, hidden_dim=42):
+        super().__init__()
 
-    def __init__(self,
-                 node_input_dim=42,
-                 edge_input_dim=10,
-                 node_hidden_dim=42,
-                 edge_hidden_dim=42,
-                 num_step_message_passing=6,
-                 ):
-        super(GatherModel, self).__init__()
-        self.num_step_message_passing = num_step_message_passing
-        self.lin0 = nn.Linear(node_input_dim, node_hidden_dim)
-        self.set2set = Set2Set(node_hidden_dim, 2, 1)
-        self.message_layer = nn.Linear(2 * node_hidden_dim, node_hidden_dim)
-        edge_network = nn.Sequential(
-            nn.Linear(edge_input_dim, edge_hidden_dim), nn.ReLU(),
-            nn.Linear(edge_hidden_dim, node_hidden_dim * node_hidden_dim))
-        self.conv = NNConv(in_feats=node_hidden_dim,
-                           out_feats=node_hidden_dim,
-                           edge_func=edge_network,
-                           aggregator_type='sum',
-                           residual=True
-                           )
+        self.initial_proj = nn.Linear(node_input_dim, hidden_dim)
 
-    def forward(self, g, n_feat, e_feat):
-        """Returns the node embeddings after message passing phase.
-        Parameters
-        ----------
-        g : DGLGraph
-            Input DGLGraph for molecule(s)
-        n_feat : tensor of dtype float32 and shape (B1, D1)
-            Node features. B1 for number of nodes and D1 for
-            the node feature size.
-        e_feat : tensor of dtype float32 and shape (B2, D2)
-            Edge features. B2 for number of edges and D2 for
-            the edge feature size.
-        Returns
-        -------
-        res : node features
-        """
+        # GraphConv layer (works with or without edge weights)
+        self.graph_conv = GraphConv(hidden_dim, hidden_dim, activation=F.relu)
 
-        init = n_feat.clone()
-        out = F.relu(self.lin0(n_feat))
-        for i in range(self.num_step_message_passing):
-            if e_feat is not None:
-                m = torch.relu(self.conv(g, out, e_feat))
-            else:
-                m = torch.relu(self.conv.bias +  self.conv.res_fc(out))
-            out = self.message_layer(torch.cat([m, out], dim=1))
-        return out + init
+        # Fallback MLP if graph has no edges
+        self.fallback = nn.Sequential(
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim)
+        )
+
+        self.message_layer = nn.Linear(2 * hidden_dim, hidden_dim)
+
+    def forward(self, g, n_feat, e_feat=None):  # e_feat ignored, GraphConv doesn't use edge features
+        h = F.relu(self.initial_proj(n_feat))
+        init = h.clone()
+
+        if g.num_edges() > 0:
+            # Add self-loops to ensure each node receives its own info
+            g = dgl.add_self_loop(g)
+            h = self.graph_conv(g, h)
+        else:
+            # No edges: fallback to MLP
+            h = self.fallback(h)
+
+        h = self.message_layer(torch.cat([h, init], dim=1))
+        return h + init
 
 
 class CIGINModel(nn.Module):
