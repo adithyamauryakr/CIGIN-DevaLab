@@ -28,7 +28,6 @@ from models.van_GAT import CIGINGAT
 from models.van_GGN import CIGINGGN
 from models.van_GCN import CIGINGCN
 
-
 lg = RDLogger.logger()
 lg.setLevel(RDLogger.CRITICAL)
 rdBase.DisableLog('rdApp.error')
@@ -50,13 +49,9 @@ batch_size = int(args.batch_size)
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
-models = [CIGINGCN(interaction=interaction), CIGINGAT(interaction=interaction), CIGINGGN(interaction=interaction)]
-model_names = ['cigin_gcn', 'cigin_gat', 'cigin_ggn']
-
-for project_name in model_names:
-    if not os.path.isdir("runs/run-" + str(project_name)):
-        os.makedirs("./runs/run-" + str(project_name))
-        os.makedirs("./runs/run-" + str(project_name) + "/models")
+if not os.path.isdir("runs/run-" + str(project_name)):
+    os.makedirs("./runs/run-" + str(project_name))
+    os.makedirs("./runs/run-" + str(project_name) + "/models")
 
 
 def collate(samples):
@@ -94,6 +89,48 @@ class Dataclass(Dataset):
         delta_g = self.dataset.iloc[idx]['delGsolv']
         return [solute_graph, solvent_graph, [delta_g]]
 
+
+def run_kfold_cv(max_epochs=100, num_folds=10, num_repeats=5, batch_size=32):
+    dataset = pd.read_csv('data/whole_data.csv')
+    dataset.columns = dataset.columns.str.strip()
+    
+    train_df, valid_df = train_test_split(dataset, test_size=0.1)
+
+    all_rmse = []
+
+    for repeat in range(num_repeats):
+        print(f"\n=== Repetition {repeat + 1}/{num_repeats} ===")
+        kf = KFold(n_splits=num_folds, shuffle=True, random_state=repeat)
+
+        for fold, (train_idx, val_idx) in enumerate(kf.split(dataset)):
+            print(f"\n[Fold {fold + 1}/{num_folds}]")
+
+            # Dataloaders
+
+            train_dataset = Dataclass(train_df)
+            valid_dataset = Dataclass(valid_df)
+
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+            valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
+
+            # New model and optimizer each fold
+            model = CIGINGAT(interaction=interaction).to(device)
+            optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10, factor=0.7, verbose=True)
+
+            project_name = f"repeat{repeat+1}_fold{fold+1}"
+            train(max_epochs, model, optimizer, scheduler, train_loader, valid_loader, project_name)
+
+            # Load best model and evaluate
+            model.load_state_dict(torch.load(f"./runs/run-{project_name}/models/best_model.tar"))
+            test_rmse = evaluate_model(model, valid_loader)
+            all_rmse.append(test_rmse)
+            print(f"✅ Fold RMSE: {test_rmse:.4f}")
+
+    mean_rmse = np.mean(all_rmse)
+    std_rmse = np.std(all_rmse)
+    print(f" Final Test RMSE over {num_repeats}x{num_folds}: {mean_rmse:.4f} ± {std_rmse:.4f}")
+
 def main():
     # train_df = pd.read_csv('data/train.csv', sep=";")
     # valid_df = pd.read_csv('data/valid.csv', sep=";")
@@ -111,18 +148,18 @@ def main():
     train_loader = DataLoader(train_dataset, collate_fn=collate, batch_size=batch_size, shuffle=True)
     valid_loader = DataLoader(valid_dataset, collate_fn=collate, batch_size=128)
     test_loader = DataLoader(test_dataset, collate_fn=collate, batch_size=128)
-    for model, project_name in zip(model, model_names):
-            
-        model.to(device)
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-        scheduler = ReduceLROnPlateau(optimizer, patience=5, mode='min', verbose=True)
 
-        train(max_epochs, model, optimizer, scheduler, train_loader, valid_loader, project_name)
+    model = CIGINGINE(interaction=interaction)
+    model.to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    scheduler = ReduceLROnPlateau(optimizer, patience=5, mode='min', verbose=True)
 
-        # check on testing data:
-        model.eval()
-        loss, mae_loss = get_metrics(model, test_loader)
-        print(f"Model performance on the testing data: Loss: {loss},  MAE_Loss: {mae_loss}")
+    train(max_epochs, model, optimizer, scheduler, train_loader, valid_loader, project_name)
+
+    # check on testing data:
+    model.eval()
+    loss, mae_loss = get_metrics(model, test_loader)
+    print(f"Model performance on the testing data: Loss: {loss},  MAE_Loss: {mae_loss}")
 
 
 if __name__ == '__main__':
