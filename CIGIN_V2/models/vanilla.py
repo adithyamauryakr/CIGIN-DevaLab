@@ -167,7 +167,8 @@ class CIGINModel(nn.Module):
         # Prediction phase
         solute_features = torch.cat((solute_features, solute_prime), dim=1)
         solvent_features = torch.cat((solvent_features, solvent_prime), dim=1)
-
+        
+        # readout Layer
         solute_features = self.set2set_solute(solute, solute_features)
         solvent_features = self.set2set_solvent(solvent, solvent_features)
 
