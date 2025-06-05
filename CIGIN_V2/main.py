@@ -111,7 +111,7 @@ def main():
     train_loader = DataLoader(train_dataset, collate_fn=collate, batch_size=batch_size, shuffle=True)
     valid_loader = DataLoader(valid_dataset, collate_fn=collate, batch_size=128)
     test_loader = DataLoader(test_dataset, collate_fn=collate, batch_size=128)
-    for model, project_name in zip(model, model_names):
+    for model, project_name in zip(models, model_names):
             
         model.to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
