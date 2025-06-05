@@ -98,7 +98,7 @@ def main():
     # train_df = pd.read_csv('data/train.csv', sep=";")
     # valid_df = pd.read_csv('data/valid.csv', sep=";")
 
-    df = pd.read_csv('data/whole_data.csv')
+    df = pd.read_csv('https://raw.githubusercontent.com/adithyamauryakr/CIGIN-DevaLab/refs/heads/master/CIGIN_V2/data/whole_data.csv')
     df.columns = df.columns.str.strip()
     print(df.columns)
     train_df, test_df = train_test_split(df, test_size=0.1, random_state=42)
