@@ -1,7 +1,7 @@
 import numpy as np
 
 from dgl import DGLGraph
-from dgl.nn.pytorch import Set2Set, NNConv, GATConv
+from dgl.nn.pytorch import Set2Set, NNConv, GlobalAttentionPooling
 
 import torch
 import torch.nn as nn
@@ -75,9 +75,8 @@ class GatherModel(nn.Module):
                 m = torch.relu(self.conv.bias +  self.conv.res_fc(out))
             out = self.message_layer(torch.cat([m, out], dim=1))
         return out + init
-
-
-class CIGINModel(nn.Module):
+ 
+class CIGINGAP(nn.Module):
     """
     This the main class for CIGIN model
     """
@@ -92,7 +91,7 @@ class CIGINModel(nn.Module):
                  num_step_set2_set=2,
                  num_layer_set2set=1,
                  ):
-        super(CIGINModel, self).__init__()
+        super(CIGINGAP, self).__init__()
 
         self.node_input_dim = node_input_dim
         self.node_hidden_dim = node_hidden_dim
@@ -100,24 +99,24 @@ class CIGINModel(nn.Module):
         self.edge_hidden_dim = edge_hidden_dim
         self.num_step_message_passing = num_step_message_passing
         self.interaction = interaction
-        self.solute_gather = GatherModel(self.node_input_dim, self.edge_input_dim,
-                                         self.node_hidden_dim, self.edge_input_dim,
+        self.solute_gather = GatherModel(self.node_input_dim,
+                                         self.node_hidden_dim,
                                          self.num_step_message_passing,
                                          )
-        self.solvent_gather = GatherModel(self.node_input_dim, self.edge_input_dim,
-                                          self.node_hidden_dim, self.edge_input_dim,
+        self.solvent_gather = GatherModel(self.node_input_dim,
+                                          self.node_hidden_dim,
                                           self.num_step_message_passing,
                                           )
         # These three are the FFNN for prediction phase
-        self.fc1 = nn.Linear(8 * self.node_hidden_dim, 256)
+        self.fc1 = nn.Linear(4 * self.node_hidden_dim, 256)
         self.fc2 = nn.Linear(256, 128)
         self.fc3 = nn.Linear(128, 1)
         self.imap = nn.Linear(80, 1)
 
-        self.num_step_set2set = num_step_set2_set
-        self.num_layer_set2set = num_layer_set2set
-        self.set2set_solute = Set2Set(2 * node_hidden_dim, self.num_step_set2set, self.num_layer_set2set)
-        self.set2set_solvent = Set2Set(2 * node_hidden_dim, self.num_step_set2set, self.num_layer_set2set)
+        self.gate_nn = nn.Linear(2*node_hidden_dim, 1)
+        
+        self.gap_solute = GlobalAttentionPooling(gate_nn=self.gate_nn)
+        self.gap_solvent = GlobalAttentionPooling(gate_nn=self.gate_nn)
 
     def forward(self, data):
         solute = data[0]
@@ -131,7 +130,7 @@ class CIGINModel(nn.Module):
             solvent_features = self.solvent_gather(solvent, solvent.ndata['x'].float(), solvent.edata['w'].float())
         except:
             # if edge doesn't exist in a molecule, for example in case of water
-            solvent_features = self.solvent_gather(solvent, solvent.ndata['x'].float(), None)
+            solvent_features = self.solvent_gather(solvent, solvent.ndata['x'].float(),solvent.edata['w'].float())
 
         # Interaction phase
         len_map = torch.mm(solute_len.t(), solvent_len)
@@ -168,8 +167,8 @@ class CIGINModel(nn.Module):
         solute_features = torch.cat((solute_features, solute_prime), dim=1)
         solvent_features = torch.cat((solvent_features, solvent_prime), dim=1)
 
-        solute_features = self.set2set_solute(solute, solute_features)
-        solvent_features = self.set2set_solvent(solvent, solvent_features)
+        solute_features = self.gap_solute(solute, solute_features)
+        solvent_features = self.gap_solvent(solvent, solvent_features)
 
         final_features = torch.cat((solute_features, solvent_features), 1)
         predictions = torch.relu(self.fc1(final_features))

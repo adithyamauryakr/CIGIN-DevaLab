@@ -1,7 +1,7 @@
 import numpy as np
 
 from dgl import DGLGraph
-from dgl.nn.pytorch import Set2Set, NNConv, EGNNConv
+from dgl.nn.pytorch import Set2Set, NNConv, WeightAndSum
 
 import torch
 import torch.nn as nn
@@ -39,21 +39,16 @@ class GatherModel(nn.Module):
         self.lin0 = nn.Linear(node_input_dim, node_hidden_dim)
         self.set2set = Set2Set(node_hidden_dim, 2, 1)
         self.message_layer = nn.Linear(2 * node_hidden_dim, node_hidden_dim)
-        # edge_network = nn.Sequential(
-        #     nn.Linear(edge_input_dim, edge_hidden_dim), nn.ReLU(),
-        #     nn.Linear(edge_hidden_dim, node_hidden_dim * node_hidden_dim))
-        # self.conv = NNConv(in_feats=node_hidden_dim,
-        #                    out_feats=node_hidden_dim,
-        #                    edge_func=edge_network,
-        #                    aggregator_type='sum',
-        #                    residual=True
-        #                    )
+        edge_network = nn.Sequential(
+            nn.Linear(edge_input_dim, edge_hidden_dim), nn.ReLU(),
+            nn.Linear(edge_hidden_dim, node_hidden_dim * node_hidden_dim))
+        self.conv = NNConv(in_feats=node_hidden_dim,
+                           out_feats=node_hidden_dim,
+                           edge_func=edge_network,
+                           aggregator_type='sum',
+                           residual=True
+                           )
 
-        self.conv = EGNNConv(in_size=node_hidden_dim,
-                             hidden_size=node_hidden_dim,
-                             out_size=node_hidden_dim,
-                             edge_feat_size=edge_hidden_dim)
-        
     def forward(self, g, n_feat, e_feat):
         """Returns the node embeddings after message passing phase.
         Parameters
@@ -82,7 +77,8 @@ class GatherModel(nn.Module):
         return out + init
 
 
-class CIGINEGNN(nn.Module):
+ 
+class CIGINWAS(nn.Module):
     """
     This the main class for CIGIN model
     """
@@ -97,7 +93,7 @@ class CIGINEGNN(nn.Module):
                  num_step_set2_set=2,
                  num_layer_set2set=1,
                  ):
-        super(CIGINEGNN, self).__init__()
+        super(CIGINWAS, self).__init__()
 
         self.node_input_dim = node_input_dim
         self.node_hidden_dim = node_hidden_dim
@@ -105,24 +101,22 @@ class CIGINEGNN(nn.Module):
         self.edge_hidden_dim = edge_hidden_dim
         self.num_step_message_passing = num_step_message_passing
         self.interaction = interaction
-        self.solute_gather = GatherModel(self.node_input_dim, self.edge_input_dim,
-                                         self.node_hidden_dim, self.edge_input_dim,
+        self.solute_gather = GatherModel(self.node_input_dim,
+                                         self.node_hidden_dim,
                                          self.num_step_message_passing,
                                          )
-        self.solvent_gather = GatherModel(self.node_input_dim, self.edge_input_dim,
-                                          self.node_hidden_dim, self.edge_input_dim,
+        self.solvent_gather = GatherModel(self.node_input_dim,
+                                          self.node_hidden_dim,
                                           self.num_step_message_passing,
                                           )
         # These three are the FFNN for prediction phase
-        self.fc1 = nn.Linear(8 * self.node_hidden_dim, 256)
+        self.fc1 = nn.Linear(4 * self.node_hidden_dim, 256)
         self.fc2 = nn.Linear(256, 128)
         self.fc3 = nn.Linear(128, 1)
         self.imap = nn.Linear(80, 1)
-
-        self.num_step_set2set = num_step_set2_set
-        self.num_layer_set2set = num_layer_set2set
-        self.set2set_solute = Set2Set(2 * node_hidden_dim, self.num_step_set2set, self.num_layer_set2set)
-        self.set2set_solvent = Set2Set(2 * node_hidden_dim, self.num_step_set2set, self.num_layer_set2set)
+        
+        self.was_solute = WeightAndSum(2*node_hidden_dim)
+        self.was_solvent = WeightAndSum(2*node_hidden_dim)
 
     def forward(self, data):
         solute = data[0]
@@ -136,7 +130,7 @@ class CIGINEGNN(nn.Module):
             solvent_features = self.solvent_gather(solvent, solvent.ndata['x'].float(), solvent.edata['w'].float())
         except:
             # if edge doesn't exist in a molecule, for example in case of water
-            solvent_features = self.solvent_gather(solvent, solvent.ndata['x'].float(), None)
+            solvent_features = self.solvent_gather(solvent, solvent.ndata['x'].float(),solvent.edata['w'].float())
 
         # Interaction phase
         len_map = torch.mm(solute_len.t(), solvent_len)
@@ -173,8 +167,8 @@ class CIGINEGNN(nn.Module):
         solute_features = torch.cat((solute_features, solute_prime), dim=1)
         solvent_features = torch.cat((solvent_features, solvent_prime), dim=1)
 
-        solute_features = self.set2set_solute(solute, solute_features)
-        solvent_features = self.set2set_solvent(solvent, solvent_features)
+        solute_features = self.was_solute(solute, solute_features)
+        solvent_features = self.was_solvent(solvent, solvent_features)
 
         final_features = torch.cat((solute_features, solvent_features), 1)
         predictions = torch.relu(self.fc1(final_features))
