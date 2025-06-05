@@ -9,6 +9,7 @@ import torch.nn.functional as F
 
 
 
+
 class GatherModel(nn.Module):
     """
     MPNN from
@@ -37,7 +38,7 @@ class GatherModel(nn.Module):
         super(GatherModel, self).__init__()
         self.num_step_message_passing = num_step_message_passing
         self.lin0 = nn.Linear(node_input_dim, node_hidden_dim)
-        self.set2set = Set2Set(node_hidden_dim, 2, 1)
+        # self.set2set = Set2Set(node_hidden_dim, 2, 1)
         self.message_layer = nn.Linear(2 * node_hidden_dim, node_hidden_dim)
         edge_network = nn.Sequential(
             nn.Linear(edge_input_dim, edge_hidden_dim), nn.ReLU(),
