@@ -102,12 +102,12 @@ class CIGINWAS(nn.Module):
         self.edge_hidden_dim = edge_hidden_dim
         self.num_step_message_passing = num_step_message_passing
         self.interaction = interaction
-        self.solute_gather = GatherModel(self.node_input_dim,
-                                         self.node_hidden_dim,
+        self.solute_gather = GatherModel(self.node_input_dim, self.edge_input_dim,
+                                         self.node_hidden_dim, self.edge_input_dim,
                                          self.num_step_message_passing,
                                          )
-        self.solvent_gather = GatherModel(self.node_input_dim,
-                                          self.node_hidden_dim,
+        self.solvent_gather = GatherModel(self.node_input_dim, self.edge_input_dim,
+                                          self.node_hidden_dim, self.edge_input_dim,
                                           self.num_step_message_passing,
                                           )
         # These three are the FFNN for prediction phase
