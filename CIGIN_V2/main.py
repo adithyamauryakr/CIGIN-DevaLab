@@ -27,7 +27,8 @@ from utils import *
 from models.van_GAT import CIGINGAT
 from models.van_GGN import CIGINGGN
 from models.van_GCN import CIGINGCN
-
+from models.van_GAP import CIGINGAP
+from models.van_WAS import CIGINWAS
 
 lg = RDLogger.logger()
 lg.setLevel(RDLogger.CRITICAL)
@@ -50,8 +51,8 @@ batch_size = int(args.batch_size)
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
-models = [CIGINGCN(interaction=interaction), CIGINGAT(interaction=interaction), CIGINGGN(interaction=interaction)]
-model_names = ['cigin_gcn', 'cigin_gat', 'cigin_ggn']
+models = [CIGINGAP(interaction=interaction), CIGINWAS(interaction=interaction)]
+model_names = ['cigin_gap', 'cigin_was']
 
 for project_name in model_names:
     if not os.path.isdir("runs/run-" + str(project_name)):
