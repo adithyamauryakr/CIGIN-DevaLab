@@ -64,14 +64,9 @@ class CIGINGCN(nn.Module):
         self.edge_hidden_dim = edge_hidden_dim
         self.num_step_message_passing = num_step_message_passing
         self.interaction = interaction
-        self.solute_gather = GatherModel(self.node_input_dim, self.edge_input_dim,
-                                         self.node_hidden_dim, self.edge_input_dim,
-                                         self.num_step_message_passing,
-                                         )
-        self.solvent_gather = GatherModel(self.node_input_dim, self.edge_input_dim,
-                                          self.node_hidden_dim, self.edge_input_dim,
-                                          self.num_step_message_passing,
-                                          )
+        self.solute_gather = GatherModel()
+        self.solvent_gather = GatherModel()
+
         # These three are the FFNN for prediction phase
         self.fc1 = nn.Linear(8 * self.node_hidden_dim, 256)
         self.fc2 = nn.Linear(256, 128)
@@ -90,6 +85,8 @@ class CIGINGCN(nn.Module):
         solvent_len = data[3]
         # node embeddings after interaction phase
         solute_features = self.solute_gather(solute, solute.ndata['x'].float(), solute.edata['w'].float())
+        
+        
         try:
             # if edge exists in a molecule
             solvent_features = self.solvent_gather(solvent, solvent.ndata['x'].float(), solvent.edata['w'].float())
